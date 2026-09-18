@@ -1,5 +1,7 @@
-from typing import Callable, Optional
-import uuid
+from typing import Callable, Optional                                      
+import uuid                                                            
+from backend.services.execution_service import ExecutionService        
+from backend.agents.verification_agent import VerificationAgent        
 from backend.schemas.metrics import ServiceObservation
 from backend.schemas.actions import ActionProposal, InfrastructureAction
 from backend.schemas.workflow import DecisionResult, WorkflowReport
@@ -28,7 +30,8 @@ class Orchestrator:
         self.decision_agent = decision_agent or DecisionAgent()
         self.safety_engine = safety_engine or SafetyEngine()
         self.verification_agent = verification_agent or VerificationAgent()
-        self.executor = executor
+        self.execution_service = ExecutionService()
+        self.executor = executor or self.execution_service.execute
         self.observer = observer
 
     def run(self, observation: ServiceObservation) -> WorkflowReport:
