@@ -19,3 +19,7 @@ htmlcov/
 .vscode/
 .idea/
 *.swp
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
