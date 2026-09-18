@@ -48,7 +48,7 @@ def test_approved_scale_up_capacity_unavailable_failure():
     
     result = agent.verify(dec, safe, exec_res)
     assert result.is_successful is False
-    assert "capacity unavailability" in result.verification_notes
+    assert "capacity_unavailable" in result.verification_notes
 
 def test_approved_scale_down_success():
     agent = VerificationAgent()

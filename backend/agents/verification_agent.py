@@ -47,7 +47,7 @@ class VerificationAgent:
                 if execution.status == ExecutionStatus.FAILURE:
                     is_successful = False
                     if execution.error_code == "capacity_unavailable":
-                        notes_parts.append(f"Execution failed due to capacity unavailability for action '{action.value}' on service '{target_service}'.")
+                        notes_parts.append(f"Execution failed (Code: capacity_unavailable) for action '{action.value}' on service '{target_service}'.")
                     else:
                         err_code = execution.error_code or "Unknown"
                         err_msg = execution.error_message or "No message provided."
