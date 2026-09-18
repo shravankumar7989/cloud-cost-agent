@@ -1,0 +1,93 @@
+from datetime import datetime, timezone
+from typing import List
+from backend.schemas.metrics import ServiceObservation
+from backend.schemas.workflow import InvestigationResult
+
+class InvestigationAgent:
+    """
+    Analyzes cloud service observations and produces an InvestigationResult.
+    The agent is currently purely deterministic and evaluates predefined rules.
+    It does not execute infrastructure actions.
+    """
+
+    def __init__(self, staleness_threshold_seconds: int = 300):
+        self.staleness_threshold_seconds = staleness_threshold_seconds
+
+    def investigate(self, observation: ServiceObservation) -> InvestigationResult:
+        """
+        Analyzes the observation and returns an InvestigationResult containing
+        identified issues and a summary.
+        """
+        issues: List[str] = []
+        summary_parts: List[str] = []
+
+        # 1. Staleness Check
+        now = datetime.now(timezone.utc)
+        obs_time = observation.observation_timestamp
+        if obs_time.tzinfo is None:
+            obs_time = obs_time.replace(tzinfo=timezone.utc)
+
+        time_diff = (now - obs_time).total_seconds()
+        is_stale = time_diff > self.staleness_threshold_seconds
+
+        if is_stale:
+            issues.append("potentially stale observation")
+            summary_parts.append(f"Observation is stale ({time_diff:.1f}s old).")
+            summary_parts.append("This observation should not be used alone for a current scaling or cost-saving decision.")
+
+        # 2. Extract metrics
+        cpu = observation.cpu_utilization_percent
+        mem = observation.memory_utilization_percent
+        traffic = observation.traffic_rpm
+        latency = observation.latency_ms
+        cost = observation.cost_per_hour
+
+        # 3. Analyze based on edge cases
+        is_high_cpu = cpu > 80.0
+        is_high_mem = mem > 80.0
+        is_substantial_traffic = traffic > 5000
+        is_high_latency = latency > 300.0
+
+        is_low_cpu = cpu <= 20.0
+        is_low_mem = mem <= 20.0
+        is_low_traffic = traffic <= 1000
+        has_meaningful_cost = cost >= 10.0
+
+        if is_high_cpu and is_high_mem and is_substantial_traffic and is_high_latency:
+            issues.append("scale-pressure conditions")
+            summary_parts.append("Service is experiencing scale pressure (high CPU, high memory, substantial traffic, and high latency).")
+        else:
+            if is_high_cpu:
+                issues.append("high CPU pressure")
+                summary_parts.append("CPU pressure is high.")
+            if is_high_mem:
+                issues.append("high memory pressure")
+                summary_parts.append("Memory pressure is high.")
+            if is_substantial_traffic and traffic > 10000:
+                issues.append("high traffic")
+                summary_parts.append("Traffic is high.")
+            if is_high_latency and latency > 500.0:
+                issues.append("latency pressure")
+                summary_parts.append("Latency is high.")
+
+        # Do not classify as underutilization if it is stale
+        if not is_stale:
+            if is_low_cpu and is_low_mem and is_low_traffic and has_meaningful_cost:
+                issues.append("potential underutilization")
+                summary_parts.append("Service is potentially underutilized relative to its cost.")
+            elif cost > 100.0 and not (is_substantial_traffic or is_high_cpu):
+                issues.append("excessive cost relative to utilization")
+                summary_parts.append("Cost is excessive given the current utilization.")
+
+        if not issues or (len(issues) == 1 and "potentially stale observation" in issues):
+            if not is_stale:
+                issues.append("normal operation")
+                summary_parts.append("Service is operating normally.")
+
+        summary = " ".join(summary_parts)
+
+        return InvestigationResult(
+            observation=observation,
+            identified_issues=issues,
+            summary=summary
+        )
